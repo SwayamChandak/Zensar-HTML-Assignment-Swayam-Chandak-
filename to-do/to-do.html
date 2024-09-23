@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        /* Navbar Grey Color */
+        .navbar {
+            background-color: #6c757d; /* Bootstrap grey */
+        }
+
+        .navbar .navbar-brand, .navbar .nav-link, .navbar .form-control, .navbar .btn-outline-success {
+            color: #fff; /* White text for contrast */
+        }
+
+        .navbar .navbar-toggler {
+            border-color: #fff; /* White border for toggler */
+        }
+
+        .navbar .navbar-toggler-icon {
+            background-image: url('data:image/svg+xml;charset=utf8,%3Csvg viewBox%3D%220 0 30 30%22 xmlns%3D%22http://www.w3.org/2000/svg%22%3E%3Cpath stroke%3D%22rgba(255, 255, 255, 1)%22 stroke-width%3D%222%22 d%3D%22M4 7h22M4 15h22M4 23h22%22/%3E%3C/svg%3E');
+        }
+
+        #todo-container {
+            background-color: #e0e0e0; /* Light grey background */
+            color: #333;
+        }
+
+        .btn-primary {
+            background-color: #1b4f72; /* Darker blue for Add Task button */
+            border-color: #1b4f72;
+        }
+
+        .btn-primary:hover {
+            background-color: #163c56; /* Slightly darker blue on hover */
+            border-color: #163c56;
+        }
+
+        .btn-success {
+            background-color: #1b4f72; /* Darker blue for Complete button */
+            border-color: #1b4f72;
+        }
+
+        .btn-success:hover {
+            background-color: #163c56; /* Slightly darker blue on hover */
+            border-color: #163c56;
+        }
+
+        .btn-sort {
+            background-color: #007bff; /* Blue button for sorting */
+            border-color: #007bff;
+            color: white;
+        }
+
+        .btn-sort:hover {
+            background-color: #0056b3; /* Darker blue on hover for Sort by Date */
+            border-color: #0056b3;
+        }
+
+        .task-complete {
+            animation: fadeOut 0.5s forwards; /* Task fade-out animation */
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; height: 0; margin-bottom: 0; }
+        }
+
+        .deadline {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Navbar Section -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Navbar</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <!-- Navbar items -->
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <!-- To-Do List Container -->
+                <div id="todo-container" class="p-4 rounded shadow">
+                    <h2>To-Do List</h2>
+                    <input type="text" id="task-input" class="form-control mb-2" placeholder="Add a new task">
+                    <input type="date" id="deadline-input" class="form-control mb-2" placeholder="Set deadline">
+                    <button class="btn btn-primary w-100 mb-3" onclick="addTask()">Add Task</button>
+
+                    <!-- Sort by Date Button -->
+                    <button class="btn btn-sort w-100 mb-3" onclick="sortTasks()">Sort by Date</button>
+
+                    <ul id="task-list" class="list-group"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link to External JavaScript File -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script>
+        const taskList = document.getElementById('task-list');
+
+        function addTask() {
+            const taskInput = document.getElementById('task-input');
+            const deadlineInput = document.getElementById('deadline-input');
+
+            if (taskInput.value === '') {
+                alert("Please enter a task");
+                return;
+            }
+
+            const taskItem = document.createElement('li');
+            taskItem.className = 'list-group-item d-flex justify-content-between align-items-center task-item';
+
+            // Task name and deadline
+            const taskText = document.createElement('span');
+            taskText.innerHTML = `${taskInput.value} <small class="deadline">(Deadline: ${deadlineInput.value || 'No deadline'})</small>`;
+            taskItem.appendChild(taskText);
+
+            // Complete button
+            const completeBtn = document.createElement('button');
+            completeBtn.className = 'btn btn-success btn-sm';
+            completeBtn.textContent = 'Complete';
+            completeBtn.onclick = () => {
+                taskItem.classList.add('task-complete');
+                setTimeout(() => taskItem.remove(), 500);
+            };
+            taskItem.appendChild(completeBtn);
+
+            // Add deadline as a data attribute for sorting later
+            taskItem.setAttribute('data-deadline', deadlineInput.value || '9999-12-31'); // No deadline goes to end
+
+            // Append task to the list
+            taskList.appendChild(taskItem);
+
+            // Clear inputs
+            taskInput.value = '';
+            deadlineInput.value = '';
+        }
+
+        // Sort tasks by deadline
+        function sortTasks() {
+            const tasks = Array.from(taskList.children);
+
+            tasks.sort((a, b) => {
+                const deadlineA = a.getAttribute('data-deadline');
+                const deadlineB = b.getAttribute('data-deadline');
+
+                return new Date(deadlineA) - new Date(deadlineB); // Sort in ascending order of dates
+            });
+
+            // Re-append the sorted tasks to the list
+            tasks.forEach(task => taskList.appendChild(task));
+        }
+    </script>
+</body>
+</html>
