@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Drawing Application</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .canvas-container {
+            background-color: #e0e0e0;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            
+        }
+
+        canvas {
+            border: 3px solid #333;
+            background-color: #fff;
+            cursor: crosshair;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #28a745;
+            color: white;
+            margin: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #218838;
+        }
+
+        .btn-undo-redo {
+            background-color: #ffc107;
+        }
+
+        .btn-undo-redo:hover {
+            background-color: #e0a800;
+        }
+
+        .dropdown {
+            font-size: 16px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #fff;
+            margin: 5px;
+        }
+
+        .multimedia-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        video, audio {
+            width: 600px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Canvas Drawing App</h1>
+
+    <!-- Canvas Container -->
+    <div class="canvas-container">
+        <!-- Canvas Element -->
+        <canvas id="myCanvas" width="800" height="600"></canvas>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <!-- Dropdown for Colors -->
+        <select id="colorDropdown" class="dropdown">
+            <option value="#007bff" selected>Blue</option>
+            <option value="#ff0000">Red</option>
+            <option value="#00c853">Green</option>
+            <option value="#ffeb3b">Yellow</option>
+            <option value="#333333">Black</option>
+        </select>
+
+        <!-- Dropdown for Pen Styles -->
+        <select id="styleDropdown" class="dropdown">
+            <option value="pen" selected>Pen</option>
+            <option value="pencil">Pencil</option>
+            <option value="brush">Brush</option>
+            <option value="curly">Curly</option>
+            <option value="eraser">Eraser</option>
+            <option value="gradient">Gradient</option>
+        </select>
+
+        <button class="btn btn-undo-redo" id="undoBtn">Undo</button>
+        <button class="btn btn-undo-redo" id="redoBtn">Redo</button>
+        <button class="btn" id="toggleGridBtn">Toggle Grid</button>
+        <button class="btn" id="clearBtn">Clear Canvas</button>
+    </div>
+
+    <!-- Multimedia Components -->
+    <div class="multimedia-container">
+        <!-- Audio Element -->
+        <audio id="audioPlayer" controls>
+            <source src="your-audio-file.mp3" type="audio/mpeg">
+            Your browser does not support the audio element.
+        </audio>
+
+        <!-- Video Element -->
+        <video id="videoPlayer" controls>
+            <source src="your-video-file.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("myCanvas");
+        const ctx = canvas.getContext("2d");
+        let painting = false;
+        let color = "#007bff"; // Default color from dropdown
+        let style = "pen"; // Default style from dropdown
+        let gridOn = false;
+        let history = [];
+        let redoHistory = [];
+        let previousCanvasImage = null;
+
+        // Save canvas state for undo/redo functionality
+        function saveState() {
+            history.push(canvas.toDataURL()); // Save the current canvas as an image
+            if (history.length > 10) history.shift(); // Keep history manageable (max 10 states)
+            redoHistory = []; // Clear redo history when a new action is made
+        }
+
+        // Undo function
+        function undo() {
+            if (history.length > 1) {
+                redoHistory.push(history.pop()); // Save current state in redoHistory
+                const img = new Image();
+                img.src = history[history.length - 1]; // Load the previous state
+                img.onload = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+                    ctx.drawImage(img, 0, 0); // Draw the previous state
+                };
+            }
+        }
+
+        // Redo function
+        function redo() {
+            if (redoHistory.length > 0) {
+                const imgData = redoHistory.pop();
+                history.push(imgData); // Move the state back to the history
+                const img = new Image();
+                img.src = imgData;
+                img.onload = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+                    ctx.drawImage(img, 0, 0); // Redraw the redo state
+                };
+            }
+        }
+
+        // Start drawing
+        canvas.addEventListener("mousedown", startPosition);
+        canvas.addEventListener("mouseup", endPosition);
+        canvas.addEventListener("mousemove", draw);
+
+        // Clear canvas button
+        const clearBtn = document.getElementById("clearBtn");
+        clearBtn.addEventListener("click", clearCanvas);
+
+        // Undo/Redo buttons
+        const undoBtn = document.getElementById("undoBtn");
+        const redoBtn = document.getElementById("redoBtn");
+        undoBtn.addEventListener("click", undo);
+        redoBtn.addEventListener("click", redo);
+
+        // Dropdown for Colors
+        const colorDropdown = document.getElementById("colorDropdown");
+        colorDropdown.addEventListener("change", (e) => {
+            color = e.target.value;
+        });
+
+        // Dropdown for Pen Styles
+        const styleDropdown = document.getElementById("styleDropdown");
+        styleDropdown.addEventListener("change", (e) => {
+            style = e.target.value;
+        });
+
+        // Function to start drawing
+        function startPosition(e) {
+            painting = true;
+            saveState(); // Save the state before the user starts drawing
+            draw(e);
+        }
+
+        // End drawing
+        function endPosition() {
+            painting = false;
+            ctx.beginPath(); // Prevent connecting lines after stopping
+        }
+
+        // Drawing function with different styles
+        function draw(e) {
+            if (!painting) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            switch (style) {
+                case "pen":
+                    ctx.lineWidth = 2;
+                    ctx.lineCap = "round";
+                    ctx.strokeStyle = color;
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                    break;
+
+                case "pencil":
+                    ctx.lineWidth = 1;
+                    ctx.lineCap = "round";
+                    ctx.strokeStyle = color;
+                    ctx.setLineDash([2, 2]); // Dotted pencil line
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                    ctx.setLineDash([]); // Reset dash
+                    break;
+
+                case "brush":
+                    ctx.lineWidth = 15;
+                    ctx.lineCap = "round";
+                    ctx.strokeStyle = color;
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                    break;
+
+                case "curly":
+                    ctx.lineWidth = 5;
+                    ctx.lineCap = "round";
+                    ctx.strokeStyle = color;
+                    ctx.lineTo(x + Math.sin(y / 10) * 10, y); // Curly effect
+                    ctx.stroke();
+                    break;
+
+                case "eraser":
+                    ctx.lineWidth = 10;
+                    ctx.lineCap = "round";
+                    ctx.strokeStyle = "#ffffff"; // White for eraser
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                    break;
+
+                case "gradient":
+                    let gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+                    gradient.addColorStop(0, color);
+                    gradient.addColorStop(1, "#ffffff");
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 10;
+                    ctx.lineCap = "round";
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                    break;
+            }
+
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        // Clear the canvas
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            history = []; // Clear history when canvas is cleared
+            redoHistory = []; // Clear redo history
+        }
+
+        // Toggle grid
+        const toggleGridBtn = document.getElementById("toggleGridBtn");
+        toggleGridBtn.addEventListener("click", toggleGrid);
+
+        function saveCanvasContent() {
+            previousCanvasImage = canvas.toDataURL(); // Save the current drawing
+        }
+
+        function toggleGrid() {
+            gridOn = !gridOn;
+            if (gridOn) {
+                saveCanvasContent();
+                drawGrid();
+            } else {
+                restoreCanvasContent();
+            }
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = "#ddd";
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 20) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+            for (let i = 0; i < canvas.height; i += 20) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(canvas.width, i);
+                ctx.stroke();
+            }
+        }
+
+        function restoreCanvasContent() {
+            if (previousCanvasImage) {
+                const img = new Image();
+                img.src = previousCanvasImage;
+                img.onload = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+                    ctx.drawImage(img, 0, 0); // Restore the saved content
+                };
+            }
+        }
+    </script>
+</body>
+</html>
